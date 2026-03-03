@@ -3,13 +3,10 @@
 /* ===== Design Tokens ===== */
 :root {
   --bg-primary: #000000;
-  --bg-card: rgba(255, 255, 255, 0.03);
-  --border-card: rgba(255, 255, 255, 0.08);
   --text-primary: rgba(255, 255, 255, 0.92);
   --text-secondary: rgba(255, 255, 255, 0.55);
   --text-accent: rgba(255, 255, 255, 0.38);
   --glow-color: rgba(255, 255, 255, 0.04);
-  --shimmer-color: rgba(255, 255, 255, 0.06);
 }
 
 /* ===== Global Reset ===== */
@@ -41,31 +38,120 @@ body::before {
   inset: 0;
   z-index: 9999;
   pointer-events: none;
-  opacity: 0.025;
+  opacity: 0.02;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
   background-repeat: repeat;
   background-size: 256px 256px;
 }
 
-/* ===== Ambient Glow ===== */
-.ambient-glow {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  background: radial-gradient(
-    ellipse 60% 50% at 50% 50%,
-    var(--glow-color) 0%,
-    transparent 70%
-  );
+/* ===== Cinematic Gradient Background ===== */
+@keyframes gradient-drift {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  25% {
+    background-position: 50% 100%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  75% {
+    background-position: 50% 0%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
-/* ===== Card Shimmer Effect ===== */
-@keyframes shimmer {
+.cinematic-bg {
+  position: fixed;
+  inset: -50%;
+  width: 200%;
+  height: 200%;
+  z-index: 0;
+  background: radial-gradient(ellipse at 20% 50%,
+      rgba(20, 30, 80, 0.5) 0%,
+      transparent 50%),
+    radial-gradient(ellipse at 80% 30%,
+      rgba(88, 40, 140, 0.35) 0%,
+      transparent 45%),
+    radial-gradient(ellipse at 50% 80%,
+      rgba(30, 80, 100, 0.25) 0%,
+      transparent 50%),
+    radial-gradient(ellipse at 70% 70%,
+      rgba(120, 50, 80, 0.12) 0%,
+      transparent 40%);
+  background-size: 200% 200%;
+  animation: gradient-drift 10s ease-in-out infinite;
+  filter: blur(80px);
+}
+
+/* ===== Hello Letter Shimmer ===== */
+@keyframes hello-shimmer {
+  0% {
+    transform: translateX(-120%);
+    opacity: 0;
+  }
+
+  30% {
+    opacity: 0.6;
+  }
+
+  100% {
+    transform: translateX(120%);
+    opacity: 0;
+  }
+}
+
+.hello-shimmer-container {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.hello-shimmer-container::after {
+  content: "";
+  position: absolute;
+  top: -20%;
+  left: 0;
+  width: 40%;
+  height: 140%;
+  background: linear-gradient(90deg,
+      transparent,
+      rgba(255, 255, 255, 0.08),
+      transparent);
+  transform: skewX(-15deg);
+  animation: hello-shimmer 1.2s ease-in-out 2.0s forwards;
+  animation-fill-mode: both;
+}
+
+/* ===== Card Shimmer ===== */
+@keyframes card-light-sweep {
   0% {
     transform: translateX(-100%) skewX(-15deg);
   }
+
   100% {
     transform: translateX(200%) skewX(-15deg);
+  }
+}
+
+@keyframes sweep-fade {
+  0% {
+    opacity: 0;
+  }
+
+  30% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
   }
 }
 
@@ -84,38 +170,30 @@ body::before {
   left: 0;
   width: 50%;
   height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    var(--shimmer-color),
-    transparent
-  );
-  animation: shimmer 2s ease-in-out 1.8s forwards;
-  opacity: 0;
-  animation-fill-mode: both;
+  background: linear-gradient(90deg,
+      transparent,
+      rgba(255, 255, 255, 0.05),
+      transparent);
+  animation: card-light-sweep 2s ease-in-out 5.2s forwards,
+    sweep-fade 2s ease-in-out 5.2s forwards;
 }
 
-@keyframes shimmer-fade {
-  0% { opacity: 0; }
-  30% { opacity: 1; }
-  100% { opacity: 0; }
+/* ===== Floating Animation ===== */
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-2px);
+  }
 }
 
-.card-shimmer::after {
-  animation: shimmer 2s ease-in-out 1.8s forwards,
-             shimmer-fade 2s ease-in-out 1.8s forwards;
-}
-
-/* ===== Card Glass Effect ===== */
-.card-glass {
-  background: var(--bg-card);
-  border: 1px solid var(--border-card);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  box-shadow:
-    0 0 80px rgba(255, 255, 255, 0.01),
-    0 25px 50px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+.float-idle {
+  animation: float 6s ease-in-out infinite;
+  animation-delay: 6s;
 }
 
 /* ===== CTA Button ===== */
@@ -125,9 +203,9 @@ body::before {
   align-items: center;
   gap: 8px;
   padding: 14px 32px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 50px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.03);
   color: var(--text-secondary);
   font-size: 13px;
   font-weight: 500;
@@ -140,40 +218,11 @@ body::before {
 }
 
 .cta-button:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.18);
   color: var(--text-primary);
-  transform: translateY(-1px);
-  box-shadow: 0 8px 32px rgba(255, 255, 255, 0.04);
 }
 
 .cta-button:active {
   transform: translateY(0);
-}
-
-/* ===== Floating Animation ===== */
-@keyframes float {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-3px);
-  }
-}
-
-.float-idle {
-  animation: float 6s ease-in-out infinite;
-  animation-delay: 3s;
-}
-
-/* ===== Divider ===== */
-.card-divider {
-  width: 40px;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.15),
-    transparent
-  );
 }

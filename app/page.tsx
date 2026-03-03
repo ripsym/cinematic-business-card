@@ -9,12 +9,9 @@ export default function Home() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
+                background: "#000000",
             }}
         >
-            {/* Ambient glow background */}
-            <div className="ambient-glow" />
-
-            {/* Business card */}
             <BusinessCard />
         </main>
     );
