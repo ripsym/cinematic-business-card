@@ -330,14 +330,14 @@ export function ParticleScene({ onPhase }: { onPhase: PhaseCallbacks }) {
             }
             // Phase 3a: Stable Hold + convergence flash
             else if (t < T.STABLE_END) {
-                // Micro scale pop: 1.0 → 1.005 → 1.0 (subtle, premium)
-                const popT = Math.min(1, (t - T.STABLE_START) / 0.3);
+                // Micro scale pop: 1.0 → 1.02 → 1.0 (quick, confident)
+                const popT = Math.min(1, (t - T.STABLE_START) / 0.25);
                 const pop = popT < 0.5
-                    ? 1.0 + 0.005 * (popT * 2)
-                    : 1.0 + 0.005 * (2 - popT * 2);
-                // +30% luminance flash, decaying to stable over hold
+                    ? 1.0 + 0.02 * (popT * 2)
+                    : 1.0 + 0.02 * (2 - popT * 2);
+                // +40% luminance flash, decaying to stable
                 const holdP = (t - T.STABLE_START) / (T.STABLE_END - T.STABLE_START);
-                const flash = 1.15 - holdP * 0.18; // 1.15 → 0.97
+                const flash = 1.25 - holdP * 0.28; // 1.25 → 0.97
                 material.uniforms.uOpacity.value = flash * pop;
 
                 for (let i = 0; i < pd.length; i++) {
