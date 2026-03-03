@@ -10,18 +10,18 @@ const T = {
     WAKE_END: 1.5,
     CONVERGE_START: 1.5,
     CONVERGE_END: 2.7,
-    STABLE_START: 2.7,     // Stable hold + scale pop
-    STABLE_END: 3.5,       // 0.8s — "formation completed"
-    BREATHE_START: 3.5,    // Subtle breathing
-    BREATHE_END: 4.7,      // 1.2s
-    SWEEP_START: 4.7,      // Kirarin — 1.5s sweep
-    SWEEP_END: 6.2,        // Extended, thicker, more luminous
-    AFTERGLOW_START: 6.2,  // Soft afterglow
-    AFTERGLOW_END: 7.0,    // 0.8s lingering warmth
-    DISSOLVE_START: 7.0,   // Smooth dissolve
-    DISSOLVE_END: 8.0,     // 1.0s gentle fade
-    RECEDE_START: 8.0,
-    RECEDE_END: 9.3,
+    STABLE_START: 2.7,
+    STABLE_END: 3.5,
+    BREATHE_START: 3.5,
+    BREATHE_END: 4.7,
+    SWEEP_START: 4.7,
+    SWEEP_END: 6.2,       // 1.5s sweep
+    AFTERGLOW_START: 6.2,
+    AFTERGLOW_END: 7.1,   // 0.9s afterglow
+    DISSOLVE_START: 7.1,
+    DISSOLVE_END: 8.1,
+    RECEDE_START: 8.1,
+    RECEDE_END: 9.4,
 };
 
 /* ===== Adaptive Quality ===== */
@@ -31,23 +31,20 @@ interface QualityConfig {
 }
 
 function getQualityConfig(): QualityConfig {
-    let particleCount = 1200;
+    let particleCount = 1600;
     const conn = (navigator as unknown as { connection?: { effectiveType?: string } }).connection;
     const effectiveType = conn?.effectiveType;
 
     if (effectiveType === "4g") {
-        particleCount = 1200;
+        particleCount = 1600;
     } else if (effectiveType === "3g" || !effectiveType) {
-        particleCount = 700;
+        particleCount = 900;
     } else {
-        particleCount = 500;
+        particleCount = 600;
     }
 
-    // Respect reduced motion
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (prefersReduced) {
-        particleCount = 0; // Will trigger fallback
-    }
+    if (prefersReduced) particleCount = 0;
 
     const dpr = Math.min(1.5, window.devicePixelRatio || 1);
 
@@ -64,7 +61,7 @@ const LETTER_COLORS = [
     new THREE.Color("#ffffff"),
 ];
 
-function generateLetterPoints(): { points: THREE.Vector3[]; letterIdx: number }[] {
+function generateLetterPoints(): { points: THREE.Vector3[]; letterIdx: number; isEdge: boolean }[] {
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d")!;
     canvas.width = 400;
@@ -92,17 +89,26 @@ function generateLetterPoints(): { points: THREE.Vector3[]; letterIdx: number }[
         xCursor += metrics[i];
     }
 
-    const results: { points: THREE.Vector3[]; letterIdx: number }[] = [];
-    const step = 3;
+    const results: { points: THREE.Vector3[]; letterIdx: number; isEdge: boolean }[] = [];
+    const step = 2; // Denser sampling for more glyph points
     for (let y = 0; y < 100; y += step) {
         for (let x = 0; x < 400; x += step) {
             const idx = (y * 400 + x) * 4;
             if (data[idx] > 128) {
+                // Detect edge: check if any neighbor is dark
+                let isEdge = false;
+                for (const [dx, dy] of [[-step, 0], [step, 0], [0, -step], [0, step]]) {
+                    const nx = x + dx, ny = y + dy;
+                    if (nx < 0 || nx >= 400 || ny < 0 || ny >= 100) { isEdge = true; break; }
+                    const ni = (ny * 400 + nx) * 4;
+                    if (data[ni] < 128) { isEdge = true; break; }
+                }
                 for (let li = 0; li < bounds.length; li++) {
                     if (x >= bounds[li].xMin && x < bounds[li].xMax) {
                         results.push({
                             points: [new THREE.Vector3((x - 200) * 0.018, (50 - y) * 0.018, 0)],
                             letterIdx: li,
+                            isEdge,
                         });
                         break;
                     }
@@ -164,8 +170,9 @@ export function ParticleScene({ onPhase }: { onPhase: PhaseCallbacks }) {
         renderer.setPixelRatio(config.dpr);
         container.appendChild(renderer.domElement);
 
-        // Generate letter targets
+        // Generate letter targets — sort edge points first for concentration
         const letterData = generateLetterPoints();
+        const edgeFirst = [...letterData].sort((a, b) => (b.isEdge ? 1 : 0) - (a.isEdge ? 1 : 0));
 
         // Build particles
         const geometry = new THREE.BufferGeometry();
@@ -175,20 +182,19 @@ export function ParticleScene({ onPhase }: { onPhase: PhaseCallbacks }) {
 
         interface PData {
             home: THREE.Vector3;
-            li: number; // letterIdx, -1 = ambient
+            li: number;
             offset: THREE.Vector3;
             speed: number;
         }
         const pd: PData[] = [];
 
-        // Assign particles to letters
-        const letterParticleCount = Math.floor(PARTICLE_COUNT * 0.8);
+        // Assign particles to letters — edge-concentrated
+        const letterParticleCount = Math.floor(PARTICLE_COUNT * 0.82);
         for (let i = 0; i < letterParticleCount; i++) {
-            const ld = letterData[i % letterData.length];
+            const ld = edgeFirst[i % edgeFirst.length];
             const home = ld.points[0];
             const col = LETTER_COLORS[ld.letterIdx];
 
-            // Start scattered
             positions[i * 3] = (Math.random() - 0.5) * 18;
             positions[i * 3 + 1] = (Math.random() - 0.5) * 14;
             positions[i * 3 + 2] = -8 - Math.random() * 12;
@@ -196,7 +202,8 @@ export function ParticleScene({ onPhase }: { onPhase: PhaseCallbacks }) {
             colors[i * 3] = col.r;
             colors[i * 3 + 1] = col.g;
             colors[i * 3 + 2] = col.b;
-            sizes[i] = 1 + Math.random() * 1.5;
+            // Edge particles slightly larger for perceived thickness
+            sizes[i] = ld.isEdge ? 1.3 + Math.random() * 1.2 : 0.8 + Math.random() * 1.2;
 
             pd.push({
                 home: home.clone(),
@@ -323,13 +330,13 @@ export function ParticleScene({ onPhase }: { onPhase: PhaseCallbacks }) {
             }
             // Phase 3a: Stable Hold + micro scale pop — "formation completed"
             else if (t < T.STABLE_END) {
-                // Micro scale pop: 1.0 → 1.015 → 1.0 over first 0.3s
-                const popT = Math.min(1, (t - T.STABLE_START) / 0.3);
+                // Micro scale pop: 1.0 → 1.02 → 1.0 over 0.35s
+                const popT = Math.min(1, (t - T.STABLE_START) / 0.35);
                 const pop = popT < 0.5
-                    ? 1.0 + 0.015 * (popT * 2)
-                    : 1.0 + 0.015 * (2 - popT * 2);
-                // +20% luminance over base
-                material.uniforms.uOpacity.value = 0.98 * pop;
+                    ? 1.0 + 0.02 * (popT * 2)
+                    : 1.0 + 0.02 * (2 - popT * 2);
+                // +25% luminance flash
+                material.uniforms.uOpacity.value = 1.05 * pop;
 
                 for (let i = 0; i < pd.length; i++) {
                     if (pd[i].li < 0) continue;
@@ -337,7 +344,6 @@ export function ParticleScene({ onPhase }: { onPhase: PhaseCallbacks }) {
                     positions[i * 3 + 1] = pd[i].home.y + Math.cos(t * pd[i].speed * 1.3 + i) * 0.012;
                     positions[i * 3 + 2] = Math.sin(t * 0.7 + i) * 0.006;
 
-                    // Scale pop on particle sizes too
                     const baseSz = 1 + (i % 3) * 0.5;
                     sizeAttr.array[i] = baseSz * pop;
                 }
