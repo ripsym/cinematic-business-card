@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence, type Transition } from "framer-motion";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 
@@ -73,14 +73,17 @@ function ContactIcon() {
 /* ===== Card Phase ===== */
 function CardPhase() {
     const [downloaded, setDownloaded] = useState(false);
+    const [isSafari, setIsSafari] = useState(false);
 
-    const handleAddContact = () => {
-        const link = document.createElement("a");
-        link.href = "/yoshinobu-matsubara.vcf";
-        link.download = "yoshinobu-matsubara.vcf";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+    useEffect(() => {
+        const ua = navigator.userAgent;
+        const safari =
+            /iPhone|iPad|iPod/.test(ua) &&
+            /^((?!chrome|android).)*safari/i.test(ua);
+        setIsSafari(safari);
+    }, []);
+
+    const handleDownloaded = () => {
         setDownloaded(true);
         setTimeout(() => setDownloaded(false), 3000);
     };
@@ -127,19 +130,47 @@ function CardPhase() {
                 />
             </motion.div>
 
-            {/* Button */}
-            <motion.button
-                className="cta-button"
+            {/* Button — Safari vs non-Safari */}
+            <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.8, ease: EASE, delay: 1.2 } as Transition}
-                onClick={handleAddContact}
-                whileTap={{ scale: 0.97 }}
-                id="add-contact-button"
+                style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "10px" }}
             >
-                <ContactIcon />
-                {downloaded ? "Added ✓" : "Add to Contacts"}
-            </motion.button>
+                {isSafari ? (
+                    <motion.a
+                        href="/yoshinobu-matsubara.vcf"
+                        className="cta-button"
+                        whileTap={{ scale: 0.97 }}
+                        id="add-contact-button"
+                        onClick={handleDownloaded}
+                    >
+                        <ContactIcon />
+                        {downloaded ? "Added ✓" : "Add to Contacts"}
+                    </motion.a>
+                ) : (
+                    <>
+                        <motion.a
+                            href="/yoshinobu-matsubara.vcf"
+                            download
+                            className="cta-button"
+                            whileTap={{ scale: 0.97 }}
+                            id="add-contact-button"
+                            onClick={handleDownloaded}
+                        >
+                            <ContactIcon />
+                            {downloaded ? "Downloaded ✓" : "Download Contact Card"}
+                        </motion.a>
+                        <p style={{
+                            fontSize: "11px",
+                            color: "rgba(255,255,255,0.4)",
+                            letterSpacing: "0.03em",
+                        }}>
+                            Open the downloaded file to save contact.
+                        </p>
+                    </>
+                )}
+            </motion.div>
         </motion.div>
     );
 }
