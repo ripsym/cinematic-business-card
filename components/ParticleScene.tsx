@@ -203,7 +203,7 @@ export function ParticleScene({ onPhase }: { onPhase: PhaseCallbacks }) {
             colors[i * 3 + 1] = col.g;
             colors[i * 3 + 2] = col.b;
             // Edge particles richer for solid Hello
-            sizes[i] = ld.isEdge ? 1.5 + Math.random() * 1.0 : 0.7 + Math.random() * 1.0;
+            sizes[i] = ld.isEdge ? 2.2 + Math.random() * 1.4 : 1.2 + Math.random() * 1.0;
 
             pd.push({
                 home: home.clone(),
@@ -261,7 +261,7 @@ export function ParticleScene({ onPhase }: { onPhase: PhaseCallbacks }) {
         void main() {
           vColor = color;
           vec4 mv = modelViewMatrix * vec4(position, 1.0);
-          gl_PointSize = clamp(size * uDpr * (6.0 / -mv.z), 1.0, 10.0);
+          gl_PointSize = clamp(size * uDpr * (10.0 / -mv.z), 1.5, 18.0);
           gl_Position = projectionMatrix * mv;
         }
       `,
@@ -271,8 +271,10 @@ export function ParticleScene({ onPhase }: { onPhase: PhaseCallbacks }) {
         void main() {
           float d = length(gl_PointCoord - 0.5);
           if (d > 0.5) discard;
-          float a = smoothstep(0.5, 0.08, d) * uOpacity;
-          gl_FragColor = vec4(vColor, a);
+          float glow = smoothstep(0.5, 0.0, d);
+          float core = smoothstep(0.15, 0.0, d);
+          float intensity = glow * 0.6 + core * 1.8;
+          gl_FragColor = vec4(vColor * intensity, intensity * uOpacity);
         }
       `,
             transparent: true,
