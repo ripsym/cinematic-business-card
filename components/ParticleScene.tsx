@@ -10,12 +10,16 @@ const T = {
     WAKE_END: 1.5,
     CONVERGE_START: 1.5,
     CONVERGE_END: 2.7,
-    SWEEP_START: 2.7,
-    SWEEP_END: 3.1,
-    DISSOLVE_START: 3.1,
-    DISSOLVE_END: 3.9,
-    RECEDE_START: 3.9,
-    RECEDE_END: 5.2,
+    HOLD_START: 2.7,     // Hello. visible hold + breathing glow
+    HOLD_END: 3.9,       // 1.2s hold
+    SWEEP_START: 3.9,    // Kirarin sweep
+    SWEEP_END: 4.4,      // 0.5s sweep (intensified)
+    AFTERGLOW_START: 4.4, // Luminous tail
+    AFTERGLOW_END: 4.8,   // 0.4s afterglow
+    DISSOLVE_START: 4.8,
+    DISSOLVE_END: 5.6,
+    RECEDE_START: 5.6,
+    RECEDE_END: 6.9,
 };
 
 /* ===== Adaptive Quality ===== */
@@ -315,31 +319,72 @@ export function ParticleScene({ onPhase }: { onPhase: PhaseCallbacks }) {
                     positions[i * 3 + 2] += (h.z - positions[i * 3 + 2]) * ease * 0.08 * s;
                 }
             }
-            // Phase 3: Sweep
-            else if (t < T.SWEEP_END) {
-                material.uniforms.uOpacity.value = 1;
-                const sp = (t - T.SWEEP_START) / (T.SWEEP_END - T.SWEEP_START);
-                const sweepX = -5 + sp * 10;
+            // Phase 3: Hold — Hello. visible with breathing glow
+            else if (t < T.HOLD_END) {
+                const holdP = (t - T.HOLD_START) / (T.HOLD_END - T.HOLD_START);
+                // Breathing glow: gentle sine oscillation on opacity and size
+                const breathe = Math.sin(holdP * Math.PI * 2) * 0.08;
+                material.uniforms.uOpacity.value = 0.92 + breathe;
 
                 for (let i = 0; i < pd.length; i++) {
                     if (pd[i].li < 0) continue;
-                    // Micro jitter
+                    // Alive micro-jitter — very subtle
+                    positions[i * 3] = pd[i].home.x + Math.sin(t * pd[i].speed + i) * 0.015;
+                    positions[i * 3 + 1] = pd[i].home.y + Math.cos(t * pd[i].speed * 1.3 + i) * 0.015;
+                    positions[i * 3 + 2] = Math.sin(t * 0.7 + i) * 0.008;
+
+                    // Breathing size pulse
+                    const baseSz = 1 + (i % 3) * 0.5;
+                    sizeAttr.array[i] = baseSz * (1 + breathe * 0.6);
+                }
+                sizeAttr.needsUpdate = true;
+            }
+            // Phase 4: Kirarin Sweep — intensified
+            else if (t < T.SWEEP_END) {
+                material.uniforms.uOpacity.value = 1;
+                const sp = (t - T.SWEEP_START) / (T.SWEEP_END - T.SWEEP_START);
+                const sweepX = -6 + sp * 12;
+
+                for (let i = 0; i < pd.length; i++) {
+                    if (pd[i].li < 0) continue;
+                    // Hold position with micro jitter
                     positions[i * 3] = pd[i].home.x + Math.sin(t * pd[i].speed + i) * 0.02;
                     positions[i * 3 + 1] = pd[i].home.y + Math.cos(t * pd[i].speed * 1.3 + i) * 0.02;
                     positions[i * 3 + 2] = Math.sin(t * 0.7 + i) * 0.01;
 
-                    // Sweep glow
+                    // Intensified sweep glow — wider radius, stronger multiplier
                     const dist = Math.abs(positions[i * 3] - sweepX);
-                    if (dist < 1.2) {
-                        sizeAttr.array[i] = (1 + Math.random() * 1.5) * (1 + (1 - dist / 1.2) * 1.8);
+                    if (dist < 1.8) {
+                        const intensity = 1 - dist / 1.8;
+                        sizeAttr.array[i] = (1 + Math.random() * 1.5) * (1 + intensity * 2.5);
+                    } else {
+                        sizeAttr.array[i] = 1 + (i % 3) * 0.5;
                     }
                 }
                 sizeAttr.needsUpdate = true;
             }
-            // Phase 4: Dissolve
+            // Phase 4.5: Afterglow — luminous tail
+            else if (t < T.AFTERGLOW_END) {
+                const agP = (t - T.AFTERGLOW_START) / (T.AFTERGLOW_END - T.AFTERGLOW_START);
+                // Fade from bright (1.0) to calm (0.85) — soft decay
+                material.uniforms.uOpacity.value = 1.0 - agP * 0.2;
+
+                for (let i = 0; i < pd.length; i++) {
+                    if (pd[i].li < 0) continue;
+                    positions[i * 3] = pd[i].home.x + Math.sin(t * pd[i].speed + i) * 0.015;
+                    positions[i * 3 + 1] = pd[i].home.y + Math.cos(t * pd[i].speed * 1.3 + i) * 0.015;
+                    positions[i * 3 + 2] = Math.sin(t * 0.7 + i) * 0.008;
+
+                    // Sizes settle back from sweep intensity
+                    const baseSz = 1 + (i % 3) * 0.5;
+                    sizeAttr.array[i] = baseSz * (1 + (1 - agP) * 0.4);
+                }
+                sizeAttr.needsUpdate = true;
+            }
+            // Phase 5: Dissolve
             else if (t < T.DISSOLVE_END) {
                 const p = (t - T.DISSOLVE_START) / (T.DISSOLVE_END - T.DISSOLVE_START);
-                material.uniforms.uOpacity.value = Math.max(0, 1 - p * 1.3);
+                material.uniforms.uOpacity.value = Math.max(0, 0.8 - p * 1.1);
 
                 if (!identityFired) {
                     identityFired = true;
@@ -353,7 +398,7 @@ export function ParticleScene({ onPhase }: { onPhase: PhaseCallbacks }) {
                     positions[i * 3 + 2] += (Math.random() - 0.5) * p * 0.06;
                 }
             }
-            // Phase 5: Recede
+            // Phase 6: Recede
             else if (t < T.RECEDE_END) {
                 const p = (t - T.RECEDE_START) / (T.RECEDE_END - T.RECEDE_START);
                 material.uniforms.uOpacity.value = Math.max(0, 0.25 - p * 0.2);
