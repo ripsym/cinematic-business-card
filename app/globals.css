@@ -6,7 +6,6 @@
   --text-primary: rgba(255, 255, 255, 0.92);
   --text-secondary: rgba(255, 255, 255, 0.55);
   --text-accent: rgba(255, 255, 255, 0.38);
-  --glow-color: rgba(255, 255, 255, 0.04);
 }
 
 /* ===== Global Reset ===== */
@@ -31,103 +30,17 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* ===== Grain Texture Overlay ===== */
+/* ===== Grain Texture ===== */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
   z-index: 9999;
   pointer-events: none;
-  opacity: 0.02;
+  opacity: 0.015;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
   background-repeat: repeat;
   background-size: 256px 256px;
-}
-
-/* ===== Cinematic Gradient Background ===== */
-@keyframes gradient-drift {
-  0% {
-    background-position: 0% 50%;
-  }
-
-  25% {
-    background-position: 50% 100%;
-  }
-
-  50% {
-    background-position: 100% 50%;
-  }
-
-  75% {
-    background-position: 50% 0%;
-  }
-
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-.cinematic-bg {
-  position: fixed;
-  inset: -50%;
-  width: 200%;
-  height: 200%;
-  z-index: 0;
-  background: radial-gradient(ellipse at 20% 50%,
-      rgba(20, 30, 80, 0.5) 0%,
-      transparent 50%),
-    radial-gradient(ellipse at 80% 30%,
-      rgba(88, 40, 140, 0.35) 0%,
-      transparent 45%),
-    radial-gradient(ellipse at 50% 80%,
-      rgba(30, 80, 100, 0.25) 0%,
-      transparent 50%),
-    radial-gradient(ellipse at 70% 70%,
-      rgba(120, 50, 80, 0.12) 0%,
-      transparent 40%);
-  background-size: 200% 200%;
-  animation: gradient-drift 10s ease-in-out infinite;
-  filter: blur(80px);
-}
-
-/* ===== Hello Letter Shimmer ===== */
-@keyframes hello-shimmer {
-  0% {
-    transform: translateX(-120%);
-    opacity: 0;
-  }
-
-  30% {
-    opacity: 0.6;
-  }
-
-  100% {
-    transform: translateX(120%);
-    opacity: 0;
-  }
-}
-
-.hello-shimmer-container {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.hello-shimmer-container::after {
-  content: "";
-  position: absolute;
-  top: -20%;
-  left: 0;
-  width: 40%;
-  height: 140%;
-  background: linear-gradient(90deg,
-      transparent,
-      rgba(255, 255, 255, 0.08),
-      transparent);
-  transform: skewX(-15deg);
-  animation: hello-shimmer 1.2s ease-in-out 2.0s forwards;
-  animation-fill-mode: both;
 }
 
 /* ===== Card Shimmer ===== */
@@ -161,6 +74,7 @@ body::before {
   overflow: hidden;
   border-radius: inherit;
   pointer-events: none;
+  z-index: 2;
 }
 
 .card-shimmer::after {
@@ -172,14 +86,14 @@ body::before {
   height: 100%;
   background: linear-gradient(90deg,
       transparent,
-      rgba(255, 255, 255, 0.05),
+      rgba(255, 255, 255, 0.06),
       transparent);
-  animation: card-light-sweep 2s ease-in-out 5.2s forwards,
-    sweep-fade 2s ease-in-out 5.2s forwards;
+  animation: card-light-sweep 2s ease-in-out 1.5s forwards,
+    sweep-fade 2s ease-in-out 1.5s forwards;
 }
 
-/* ===== Floating Animation ===== */
-@keyframes float {
+/* ===== Float Idle ===== */
+@keyframes float-breathe {
 
   0%,
   100% {
@@ -192,8 +106,8 @@ body::before {
 }
 
 .float-idle {
-  animation: float 6s ease-in-out infinite;
-  animation-delay: 6s;
+  animation: float-breathe 6s ease-in-out infinite;
+  animation-delay: 2s;
 }
 
 /* ===== CTA Button ===== */
@@ -215,6 +129,8 @@ body::before {
   transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   text-decoration: none;
   font-family: var(--font-outfit), system-ui, sans-serif;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .cta-button:hover {
@@ -225,4 +141,9 @@ body::before {
 
 .cta-button:active {
   transform: translateY(0);
+}
+
+/* ===== Canvas ===== */
+canvas {
+  display: block;
 }
