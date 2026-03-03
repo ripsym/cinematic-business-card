@@ -11,17 +11,17 @@ const T = {
     CONVERGE_START: 1.5,
     CONVERGE_END: 2.7,
     STABLE_START: 2.7,
-    STABLE_END: 3.5,
-    BREATHE_START: 3.5,
-    BREATHE_END: 4.7,
-    SWEEP_START: 4.7,
-    SWEEP_END: 6.2,       // 1.5s sweep
-    AFTERGLOW_START: 6.2,
-    AFTERGLOW_END: 7.1,   // 0.9s afterglow
-    DISSOLVE_START: 7.1,
-    DISSOLVE_END: 8.1,
-    RECEDE_START: 8.1,
-    RECEDE_END: 9.4,
+    STABLE_END: 4.0,      // 1.3s stable hold
+    BREATHE_START: 4.0,
+    BREATHE_END: 5.2,     // 1.2s breathing
+    SWEEP_START: 5.2,
+    SWEEP_END: 6.9,       // 1.7s sweep
+    AFTERGLOW_START: 6.9,
+    AFTERGLOW_END: 7.7,   // 0.8s luminous trail
+    DISSOLVE_START: 7.7,
+    DISSOLVE_END: 8.7,
+    RECEDE_START: 8.7,
+    RECEDE_END: 10.0,
 };
 
 /* ===== Adaptive Quality ===== */
@@ -202,8 +202,8 @@ export function ParticleScene({ onPhase }: { onPhase: PhaseCallbacks }) {
             colors[i * 3] = col.r;
             colors[i * 3 + 1] = col.g;
             colors[i * 3 + 2] = col.b;
-            // Edge particles slightly larger for perceived thickness
-            sizes[i] = ld.isEdge ? 1.3 + Math.random() * 1.2 : 0.8 + Math.random() * 1.2;
+            // Edge particles richer for solid Hello
+            sizes[i] = ld.isEdge ? 1.5 + Math.random() * 1.0 : 0.7 + Math.random() * 1.0;
 
             pd.push({
                 home: home.clone(),
@@ -312,7 +312,7 @@ export function ParticleScene({ onPhase }: { onPhase: PhaseCallbacks }) {
             else if (t < T.CONVERGE_END) {
                 const raw = (t - T.CONVERGE_START) / (T.CONVERGE_END - T.CONVERGE_START);
                 const ease = 1 - Math.pow(1 - raw, 3);
-                material.uniforms.uOpacity.value = 0.35 + ease * 0.78;
+                material.uniforms.uOpacity.value = 0.35 + ease * 0.85;
                 camera.position.z = 9 - ease * 1.5;
 
                 for (let i = 0; i < pd.length; i++) {
@@ -328,43 +328,44 @@ export function ParticleScene({ onPhase }: { onPhase: PhaseCallbacks }) {
                     positions[i * 3 + 2] += (h.z - positions[i * 3 + 2]) * ease * 0.08 * s;
                 }
             }
-            // Phase 3a: Stable Hold + micro scale pop — "formation completed"
+            // Phase 3a: Stable Hold + convergence flash
             else if (t < T.STABLE_END) {
-                // Micro scale pop: 1.0 → 1.02 → 1.0 over 0.35s
-                const popT = Math.min(1, (t - T.STABLE_START) / 0.35);
+                // Micro scale pop: 1.0 → 1.005 → 1.0 (subtle, premium)
+                const popT = Math.min(1, (t - T.STABLE_START) / 0.3);
                 const pop = popT < 0.5
-                    ? 1.0 + 0.02 * (popT * 2)
-                    : 1.0 + 0.02 * (2 - popT * 2);
-                // +25% luminance flash
-                material.uniforms.uOpacity.value = 1.05 * pop;
+                    ? 1.0 + 0.005 * (popT * 2)
+                    : 1.0 + 0.005 * (2 - popT * 2);
+                // +30% luminance flash, decaying to stable over hold
+                const holdP = (t - T.STABLE_START) / (T.STABLE_END - T.STABLE_START);
+                const flash = 1.15 - holdP * 0.18; // 1.15 → 0.97
+                material.uniforms.uOpacity.value = flash * pop;
 
                 for (let i = 0; i < pd.length; i++) {
                     if (pd[i].li < 0) continue;
-                    positions[i * 3] = pd[i].home.x + Math.sin(t * pd[i].speed + i) * 0.012;
-                    positions[i * 3 + 1] = pd[i].home.y + Math.cos(t * pd[i].speed * 1.3 + i) * 0.012;
-                    positions[i * 3 + 2] = Math.sin(t * 0.7 + i) * 0.006;
+                    positions[i * 3] = pd[i].home.x + Math.sin(t * pd[i].speed + i) * 0.01;
+                    positions[i * 3 + 1] = pd[i].home.y + Math.cos(t * pd[i].speed * 1.3 + i) * 0.01;
+                    positions[i * 3 + 2] = Math.sin(t * 0.7 + i) * 0.005;
 
                     const baseSz = 1 + (i % 3) * 0.5;
                     sizeAttr.array[i] = baseSz * pop;
                 }
                 sizeAttr.needsUpdate = true;
             }
-            // Phase 3b: Breathing — minimal scale + luminance oscillation
+            // Phase 3b: Breathing — 1.005x scale + luminance modulation
             else if (t < T.BREATHE_END) {
                 const bp = (t - T.BREATHE_START) / (T.BREATHE_END - T.BREATHE_START);
-                // Two slow sine cycles over 1.2s
-                const breathe = Math.sin(bp * Math.PI * 2.5) * 0.06;
-                material.uniforms.uOpacity.value = 0.93 + breathe;
+                const breathe = Math.sin(bp * Math.PI * 2.5) * 0.04;
+                const scaleBreathe = 1.0 + Math.sin(bp * Math.PI * 2.5) * 0.005;
+                material.uniforms.uOpacity.value = (0.95 + breathe) * scaleBreathe;
 
                 for (let i = 0; i < pd.length; i++) {
                     if (pd[i].li < 0) continue;
-                    positions[i * 3] = pd[i].home.x + Math.sin(t * pd[i].speed + i) * 0.013;
-                    positions[i * 3 + 1] = pd[i].home.y + Math.cos(t * pd[i].speed * 1.3 + i) * 0.013;
-                    positions[i * 3 + 2] = Math.sin(t * 0.7 + i) * 0.007;
+                    positions[i * 3] = pd[i].home.x + Math.sin(t * pd[i].speed + i) * 0.011;
+                    positions[i * 3 + 1] = pd[i].home.y + Math.cos(t * pd[i].speed * 1.3 + i) * 0.011;
+                    positions[i * 3 + 2] = Math.sin(t * 0.7 + i) * 0.005;
 
-                    // Gentle size breathing
                     const baseSz = 1 + (i % 3) * 0.5;
-                    sizeAttr.array[i] = baseSz * (1 + breathe * 0.5);
+                    sizeAttr.array[i] = baseSz * scaleBreathe;
                 }
                 sizeAttr.needsUpdate = true;
             }
