@@ -10,18 +10,18 @@ const T = {
     WAKE_END: 1.5,
     CONVERGE_START: 1.5,
     CONVERGE_END: 2.7,
-    STABLE_START: 2.7,     // Stable hold — feel the moment
-    STABLE_END: 3.5,       // 0.8s solid
-    BREATHE_START: 3.5,    // Subtle breathing effect
-    BREATHE_END: 4.7,      // 1.2s breathing
-    SWEEP_START: 4.7,      // Kirarin sweep
-    SWEEP_END: 5.2,        // 0.5s
-    AFTERGLOW_START: 5.2,  // Luminous afterglow tail
-    AFTERGLOW_END: 5.9,    // 0.7s lingering warmth
-    DISSOLVE_START: 5.9,   // Smooth dissolve — not a cut
-    DISSOLVE_END: 6.9,     // 1.0s gentle fade
-    RECEDE_START: 6.9,
-    RECEDE_END: 8.2,
+    STABLE_START: 2.7,     // Stable hold + scale pop
+    STABLE_END: 3.5,       // 0.8s — "formation completed"
+    BREATHE_START: 3.5,    // Subtle breathing
+    BREATHE_END: 4.7,      // 1.2s
+    SWEEP_START: 4.7,      // Kirarin — 1.5s sweep
+    SWEEP_END: 6.2,        // Extended, thicker, more luminous
+    AFTERGLOW_START: 6.2,  // Soft afterglow
+    AFTERGLOW_END: 7.0,    // 0.8s lingering warmth
+    DISSOLVE_START: 7.0,   // Smooth dissolve
+    DISSOLVE_END: 8.0,     // 1.0s gentle fade
+    RECEDE_START: 8.0,
+    RECEDE_END: 9.3,
 };
 
 /* ===== Adaptive Quality ===== */
@@ -305,7 +305,7 @@ export function ParticleScene({ onPhase }: { onPhase: PhaseCallbacks }) {
             else if (t < T.CONVERGE_END) {
                 const raw = (t - T.CONVERGE_START) / (T.CONVERGE_END - T.CONVERGE_START);
                 const ease = 1 - Math.pow(1 - raw, 3);
-                material.uniforms.uOpacity.value = 0.35 + ease * 0.65;
+                material.uniforms.uOpacity.value = 0.35 + ease * 0.78;
                 camera.position.z = 9 - ease * 1.5;
 
                 for (let i = 0; i < pd.length; i++) {
@@ -321,17 +321,27 @@ export function ParticleScene({ onPhase }: { onPhase: PhaseCallbacks }) {
                     positions[i * 3 + 2] += (h.z - positions[i * 3 + 2]) * ease * 0.08 * s;
                 }
             }
-            // Phase 3a: Stable Hold — feel the moment
+            // Phase 3a: Stable Hold + micro scale pop — "formation completed"
             else if (t < T.STABLE_END) {
-                material.uniforms.uOpacity.value = 0.95;
+                // Micro scale pop: 1.0 → 1.015 → 1.0 over first 0.3s
+                const popT = Math.min(1, (t - T.STABLE_START) / 0.3);
+                const pop = popT < 0.5
+                    ? 1.0 + 0.015 * (popT * 2)
+                    : 1.0 + 0.015 * (2 - popT * 2);
+                // +20% luminance over base
+                material.uniforms.uOpacity.value = 0.98 * pop;
 
                 for (let i = 0; i < pd.length; i++) {
                     if (pd[i].li < 0) continue;
-                    // Very subtle alive micro-jitter
                     positions[i * 3] = pd[i].home.x + Math.sin(t * pd[i].speed + i) * 0.012;
                     positions[i * 3 + 1] = pd[i].home.y + Math.cos(t * pd[i].speed * 1.3 + i) * 0.012;
                     positions[i * 3 + 2] = Math.sin(t * 0.7 + i) * 0.006;
+
+                    // Scale pop on particle sizes too
+                    const baseSz = 1 + (i % 3) * 0.5;
+                    sizeAttr.array[i] = baseSz * pop;
                 }
+                sizeAttr.needsUpdate = true;
             }
             // Phase 3b: Breathing — minimal scale + luminance oscillation
             else if (t < T.BREATHE_END) {
@@ -352,22 +362,25 @@ export function ParticleScene({ onPhase }: { onPhase: PhaseCallbacks }) {
                 }
                 sizeAttr.needsUpdate = true;
             }
-            // Phase 4: Kirarin Sweep — controlled intensity
+            // Phase 4: Kirarin Sweep — 1.5s, thicker, more luminous
             else if (t < T.SWEEP_END) {
                 material.uniforms.uOpacity.value = 1;
                 const sp = (t - T.SWEEP_START) / (T.SWEEP_END - T.SWEEP_START);
-                const sweepX = -6 + sp * 12;
+                // Smooth easeInOut for sweep position
+                const sweepEase = sp < 0.5 ? 2 * sp * sp : 1 - Math.pow(-2 * sp + 2, 2) / 2;
+                const sweepX = -6 + sweepEase * 12;
 
                 for (let i = 0; i < pd.length; i++) {
                     if (pd[i].li < 0) continue;
-                    positions[i * 3] = pd[i].home.x + Math.sin(t * pd[i].speed + i) * 0.018;
-                    positions[i * 3 + 1] = pd[i].home.y + Math.cos(t * pd[i].speed * 1.3 + i) * 0.018;
-                    positions[i * 3 + 2] = Math.sin(t * 0.7 + i) * 0.01;
+                    positions[i * 3] = pd[i].home.x + Math.sin(t * pd[i].speed + i) * 0.016;
+                    positions[i * 3 + 1] = pd[i].home.y + Math.cos(t * pd[i].speed * 1.3 + i) * 0.016;
+                    positions[i * 3 + 2] = Math.sin(t * 0.7 + i) * 0.008;
 
+                    // Thicker sweep radius (2.2), stronger glow (3.0x)
                     const dist = Math.abs(positions[i * 3] - sweepX);
-                    if (dist < 1.8) {
-                        const intensity = 1 - dist / 1.8;
-                        sizeAttr.array[i] = (1 + Math.random() * 1.5) * (1 + intensity * 2.5);
+                    if (dist < 2.2) {
+                        const intensity = 1 - dist / 2.2;
+                        sizeAttr.array[i] = (1 + Math.random() * 1.5) * (1 + intensity * 3.0);
                     } else {
                         sizeAttr.array[i] = 1 + (i % 3) * 0.5;
                     }
