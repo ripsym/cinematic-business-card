@@ -5,12 +5,28 @@ import { useState, useCallback, useEffect } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 
+/* ===== Dynamic WebGL Import (ssr: false) ===== */
 const ParticleScene = dynamic(
     () => import("./ParticleScene").then((m) => ({ default: m.ParticleScene })),
-    { ssr: false }
+    { ssr: false, loading: () => <div style={{ position: "fixed", inset: 0, background: "#000" }} /> }
 );
 
 const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
+
+/* ===== CSS Fallback (no WebGL) ===== */
+function CSSFallback({ onPhase }: { onPhase: { onIdentityStart: () => void; onCardStart: () => void } }) {
+    useEffect(() => {
+        const t1 = setTimeout(onPhase.onIdentityStart, 3100);
+        const t2 = setTimeout(onPhase.onCardStart, 3900);
+        return () => { clearTimeout(t1); clearTimeout(t2); };
+    }, [onPhase]);
+
+    return (
+        <div style={{ position: "fixed", inset: 0, zIndex: 0, overflow: "hidden" }}>
+            <div className="css-fallback-bg" />
+        </div>
+    );
+}
 
 /* ===== Identity Reveal ===== */
 function IdentityReveal({ onComplete }: { onComplete: () => void }) {
@@ -18,11 +34,9 @@ function IdentityReveal({ onComplete }: { onComplete: () => void }) {
         <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, transition: { duration: 0.4, ease: "easeOut" } }}
+            exit={{ opacity: 0, transition: { duration: 0.35, ease: "easeOut" } }}
             transition={{ duration: 0.8, ease: EASE } as Transition}
-            onAnimationComplete={() => {
-                setTimeout(onComplete, 800);
-            }}
+            onAnimationComplete={() => setTimeout(onComplete, 700)}
             style={{
                 position: "absolute",
                 inset: 0,
@@ -40,7 +54,7 @@ function IdentityReveal({ onComplete }: { onComplete: () => void }) {
                     letterSpacing: "0.25em",
                     textTransform: "uppercase",
                     color: "rgba(255,255,255,0.88)",
-                    textShadow: "0 0 40px rgba(255,255,255,0.08)",
+                    textShadow: "0 0 30px rgba(255,255,255,0.06)",
                 }}
             >
                 AI Media Architect
@@ -52,16 +66,8 @@ function IdentityReveal({ onComplete }: { onComplete: () => void }) {
 /* ===== Contact Icon ===== */
 function ContactIcon() {
     return (
-        <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
             <circle cx="9" cy="7" r="4" />
             <line x1="19" y1="8" x2="19" y2="14" />
@@ -77,13 +83,12 @@ function CardPhase() {
 
     useEffect(() => {
         const ua = navigator.userAgent;
-        const safari =
-            /iPhone|iPad|iPod/.test(ua) &&
-            /^((?!chrome|android).)*safari/i.test(ua);
-        setIsSafari(safari);
+        setIsSafari(
+            /iPhone|iPad|iPod/.test(ua) && /^((?!chrome|android).)*safari/i.test(ua)
+        );
     }, []);
 
-    const handleDownloaded = () => {
+    const onDl = () => {
         setDownloaded(true);
         setTimeout(() => setDownloaded(false), 3000);
     };
@@ -99,7 +104,7 @@ function CardPhase() {
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: "32px",
+                gap: "28px",
                 zIndex: 10,
             }}
         >
@@ -111,12 +116,12 @@ function CardPhase() {
                 transition={{ duration: 1.2, ease: EASE } as Transition}
                 style={{
                     position: "relative",
-                    width: "min(420px, 88vw)",
+                    width: "min(400px, 88vw)",
                     aspectRatio: "1075 / 650",
                     borderRadius: "12px",
                     overflow: "hidden",
                     boxShadow:
-                        "0 0 80px rgba(79, 140, 255, 0.06), 0 25px 60px rgba(0, 0, 0, 0.5)",
+                        "0 0 60px rgba(79,140,255,0.05), 0 20px 50px rgba(0,0,0,0.5)",
                 }}
             >
                 <div className="card-shimmer" />
@@ -126,46 +131,31 @@ function CardPhase() {
                     fill
                     priority
                     style={{ objectFit: "cover" }}
-                    sizes="(max-width: 768px) 88vw, 420px"
+                    sizes="(max-width: 768px) 88vw, 400px"
                 />
             </motion.div>
 
-            {/* Button — Safari vs non-Safari */}
+            {/* CTA */}
             <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ duration: 0.8, ease: EASE, delay: 1.2 } as Transition}
+                transition={{ duration: 0.8, ease: EASE, delay: 1.0 } as Transition}
                 style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "10px" }}
             >
                 {isSafari ? (
-                    <motion.a
-                        href="/yoshinobu-matsubara.vcf"
-                        className="cta-button"
-                        whileTap={{ scale: 0.97 }}
-                        id="add-contact-button"
-                        onClick={handleDownloaded}
-                    >
+                    <motion.a href="/yoshinobu-matsubara.vcf" className="cta-button"
+                        whileTap={{ scale: 0.97 }} id="add-contact-button" onClick={onDl}>
                         <ContactIcon />
                         {downloaded ? "Added ✓" : "Add to Contacts"}
                     </motion.a>
                 ) : (
                     <>
-                        <motion.a
-                            href="/yoshinobu-matsubara.vcf"
-                            download
-                            className="cta-button"
-                            whileTap={{ scale: 0.97 }}
-                            id="add-contact-button"
-                            onClick={handleDownloaded}
-                        >
+                        <motion.a href="/yoshinobu-matsubara.vcf" download className="cta-button"
+                            whileTap={{ scale: 0.97 }} id="add-contact-button" onClick={onDl}>
                             <ContactIcon />
                             {downloaded ? "Downloaded ✓" : "Download Contact Card"}
                         </motion.a>
-                        <p style={{
-                            fontSize: "11px",
-                            color: "rgba(255,255,255,0.4)",
-                            letterSpacing: "0.03em",
-                        }}>
+                        <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.35)", letterSpacing: "0.03em" }}>
                             Open the downloaded file to save contact.
                         </p>
                     </>
@@ -175,37 +165,39 @@ function CardPhase() {
     );
 }
 
-/* ===== Main Orchestrator ===== */
-type Phase = "particles" | "identity" | "card";
+/* ===== Orchestrator ===== */
+type Phase = "scene" | "identity" | "card";
 
 export function BusinessCard() {
-    const [phase, setPhase] = useState<Phase>("particles");
+    const [phase, setPhase] = useState<Phase>("scene");
+    const [webglSupported, setWebglSupported] = useState(true);
 
-    const handleIdentityStart = useCallback(() => {
-        setPhase("identity");
+    useEffect(() => {
+        try {
+            const c = document.createElement("canvas");
+            const gl = c.getContext("webgl") || c.getContext("experimental-webgl");
+            if (!gl) setWebglSupported(false);
+        } catch {
+            setWebglSupported(false);
+        }
     }, []);
 
-    const handleCardStart = useCallback(() => {
-        setPhase("card");
-    }, []);
+    const onIdentity = useCallback(() => setPhase("identity"), []);
+    const onCard = useCallback(() => setPhase("card"), []);
+
+    const phaseCallbacks = { onIdentityStart: onIdentity, onCardStart: onCard };
 
     return (
         <>
-            {/* WebGL Particle Background */}
-            <ParticleScene
-                onPhase={{
-                    onIdentityStart: handleIdentityStart,
-                    onCardStart: handleCardStart,
-                }}
-            />
+            {webglSupported ? (
+                <ParticleScene onPhase={phaseCallbacks} />
+            ) : (
+                <CSSFallback onPhase={phaseCallbacks} />
+            )}
 
-            {/* DOM Overlays */}
             <AnimatePresence mode="wait">
                 {phase === "identity" && (
-                    <IdentityReveal
-                        key="identity"
-                        onComplete={() => setPhase("card")}
-                    />
+                    <IdentityReveal key="id" onComplete={() => setPhase("card")} />
                 )}
                 {phase === "card" && <CardPhase key="card" />}
             </AnimatePresence>
